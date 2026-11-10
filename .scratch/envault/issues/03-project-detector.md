@@ -4,9 +4,9 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** implemented
 
-- [ ] `detect_project(start_dir: &Path) -> anyhow::Result<ProjectInfo>` implemented in `src/project/detector.rs` matching SPEC §4.1 and §11.
-- [ ] Returns directory path and inferred project name (using directory name).
-- [ ] Falls back gracefully to the starting directory name if no marker is found.
-- [ ] Unit tests for finding marker files across nested directories.
+- [x] `detect_project(start_dir: &Path) -> anyhow::Result<ProjectInfo>` implemented in `src/project/detector.rs` matching SPEC §4.1 and §11.
+- [x] Returns directory path and inferred project name (using directory name).
+- [x] Falls back gracefully to the starting directory name if no marker is found.
+- [x] Unit tests for finding marker files across nested directories.
