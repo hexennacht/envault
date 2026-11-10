@@ -4,11 +4,11 @@
 
 **Blocked by:** 03: Project Detector, 04: Vault Client and Keychain
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Clap CLI parser in `src/cli/mod.rs` with `set`, `get`, `list`, `delete` subcommands and global flags (`--project`, `--scope`, `--db`).
-- [ ] `envault set KEY=VALUE` stores encrypted secret.
-- [ ] `envault get KEY` outputs decrypted plaintext secret.
-- [ ] `envault list` outputs list of stored secret keys.
-- [ ] `envault delete KEY` deletes the secret.
-- [ ] Integration tests testing CLI invocations for round-trip secret operations.
+- [x] Clap CLI parser in `src/cli/mod.rs` with `set`, `get`, `list`, `delete` subcommands and global flags (`--project`, `--scope`, `--db`).
+- [x] `envault set KEY=VALUE` stores encrypted secret.
+- [x] `envault get KEY` outputs decrypted plaintext secret.
+- [x] `envault list` outputs list of stored secret keys.
+- [x] `envault delete KEY` deletes the secret.
+- [x] Integration tests testing CLI invocations for round-trip secret operations.
