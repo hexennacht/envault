@@ -4,7 +4,7 @@
 
 **Blocked by:** 01: Core Storage and Crypto Foundation
 
-**Status:** completed
+**Status:** done
 
 - [x] `keychain.rs` provides `store_key` and `load_key` with safe fallback when headless/keyring is unavailable.
 - [x] `VaultClient` implemented in `src/vault/mod.rs` supporting `set`, `get`, `list`, `delete`, and `get_all` for a given project and scope.
