@@ -4,11 +4,11 @@
 
 **Blocked by:** 04: Vault Client and Keychain, 05: Schema Validator
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `App` state struct and state enums in `src/tui/app.rs` matching SPEC §6.3.
-- [ ] Single source of truth for key routing using `FocusZone` (List | SearchBar) and `popup: Option<PopupKind>`.
-- [ ] Centered modal popup widget in `src/tui/components/popup.rs` supporting ConfirmDelete, ShowValue, and Error.
-- [ ] Search input component in `src/tui/components/search_bar.rs`.
-- [ ] Status bar component in `src/tui/components/status_bar.rs`.
-- [ ] Unit tests for state transitions and search filtering.
+- [x] `App` state struct and state enums in `src/tui/app.rs` matching SPEC §6.3.
+- [x] Single source of truth for key routing using `FocusZone` (List | SearchBar) and `popup: Option<PopupKind>`.
+- [x] Centered modal popup widget in `src/tui/components/popup.rs` supporting ConfirmDelete, ShowValue, and Error.
+- [x] Search input component in `src/tui/components/search_bar.rs`.
+- [x] Status bar component in `src/tui/components/status_bar.rs`.
+- [x] Unit tests for state transitions and search filtering.
