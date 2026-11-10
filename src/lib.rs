@@ -1,3 +1,3 @@
-pub mod vault;
-pub mod schema;
 pub mod project;
+pub mod schema;
+pub mod vault;
