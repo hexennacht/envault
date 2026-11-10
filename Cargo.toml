@@ -3,4 +3,21 @@ name = "envault"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "envault"
+path = "src/main.rs"
+
 [dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+clap = { version = "4", features = ["derive"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+aes-gcm = "0.10"
+argon2 = "0.5"
+rand = "0.8"
+keyring = "3"
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+chrono = "0.4"
+zeroize = "1"
