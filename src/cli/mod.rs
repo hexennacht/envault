@@ -6,6 +6,14 @@ use clap::{Parser, Subcommand};
 
 use crate::vault::VaultClient;
 
+pub mod audit;
+pub mod run;
+pub mod validate;
+
+pub use audit::handle_audit;
+pub use run::handle_run;
+pub use validate::handle_validate;
+
 /// Command-line arguments for envault.
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -54,6 +62,18 @@ pub enum Commands {
         /// Secret key to delete
         key: String,
     },
+    /// Run a command with decrypted secrets injected as environment variables
+    Run {
+        #[arg(trailing_var_arg = true, required = true)]
+        command: Vec<String>,
+    },
+    /// Validate stored secrets against a schema file
+    Validate {
+        #[arg(long)]
+        schema: Option<PathBuf>,
+    },
+    /// Print the audit log for the current project
+    Audit,
 }
 
 /// Expands `~` or `~/...` in a path using the user's home directory.
@@ -258,6 +278,33 @@ pub fn run_cli(args: Cli) -> anyhow::Result<()> {
         Commands::Delete { key } => {
             handle_delete(&db_path, &project, &scope, &password, &key)?;
         }
+        Commands::Run { command } => {
+            let code = run::handle_run(&db_path, &project, &scope, &password, &command)?;
+            if code != 0 {
+                if std::env::var("ENVAULT_NO_EXIT").is_ok() {
+                    anyhow::bail!("child process exited with code {}", code);
+                }
+                std::process::exit(code);
+            }
+        }
+        Commands::Validate { schema } => {
+            let ok = validate::handle_validate(
+                &db_path,
+                &project,
+                &scope,
+                &password,
+                schema.as_deref(),
+            )?;
+            if !ok {
+                if std::env::var("ENVAULT_NO_EXIT").is_ok() {
+                    anyhow::bail!("schema validation failed");
+                }
+                std::process::exit(1);
+            }
+        }
+        Commands::Audit => {
+            audit::handle_audit(&db_path, &project, &scope, &password)?;
+        }
     }
 
     Ok(())
@@ -299,6 +346,25 @@ mod tests {
                 key: "FOO".to_string()
             })
         );
+
+        let args = Cli::parse_from(["envault", "run", "--", "echo", "hello", "world"]);
+        assert_eq!(
+            args.command,
+            Some(Commands::Run {
+                command: vec!["echo".to_string(), "hello".to_string(), "world".to_string()]
+            })
+        );
+
+        let args = Cli::parse_from(["envault", "validate", "--schema", "/path/to/.env.schema"]);
+        assert_eq!(
+            args.command,
+            Some(Commands::Validate {
+                schema: Some(PathBuf::from("/path/to/.env.schema"))
+            })
+        );
+
+        let args = Cli::parse_from(["envault", "audit"]);
+        assert_eq!(args.command, Some(Commands::Audit));
     }
 
     #[test]
