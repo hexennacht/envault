@@ -234,6 +234,13 @@ db = "~/.config/envault/vault.db"
 - **Memory Zeroization**: Clears sensitive master password buffers in memory using the `zeroize` crate.
 - **Zero Disk Exposure**: Secrets flow directly from memory to child process environments without temporary files.
 
+## Acknowledgments
+
+`envault` draws inspiration from two open-source projects:
+
+- [cloakenv](https://github.com/hoomanaskari/cloakenv) — Encrypted local vault design, master password key derivation, and direct process injection.
+- [varlock](https://github.com/dmno-dev/varlock) — Environment variable schema validation and the `@env-spec` decorator standard.
+
 ## License
 
 MIT OR Apache-2.0
