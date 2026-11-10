@@ -39,11 +39,12 @@ impl std::fmt::Debug for VaultClient {
 impl VaultClient {
     /// Open a SQLite database at `db_path`, initialize schemas, ensure master salt exists,
     /// and resolve the 32-byte encryption key from the keychain or by deriving it from `password`.
-    pub fn open(
+    /// If a cached key exists in keychain, `password` may be `None`.
+    pub fn open<'a>(
         db_path: &Path,
         project: &str,
         scope: &str,
-        password: &str,
+        password: impl Into<Option<&'a str>>,
     ) -> anyhow::Result<Self> {
         let conn = db::open_db(db_path)?;
 
@@ -67,18 +68,39 @@ impl VaultClient {
             }
         };
 
+        let password_opt = password.into();
+
         // Try loading cached key from keychain. If not present, derive key from password and salt
         // using kdf::derive_key, and attempt to cache it in keychain.
         let key = match keychain::load_key(project)? {
             Some(k) => k,
             None => {
-                let derived = kdf::derive_key(password, &salt)?;
+                let pwd = match password_opt {
+                    Some(p) if !p.is_empty() => p,
+                    _ => anyhow::bail!("master password required to unlock vault for project '{project}'"),
+                };
+                let derived = kdf::derive_key(pwd, &salt)?;
                 let _ = keychain::store_key(project, &derived);
                 derived
             }
         };
 
         Self::from_connection(conn, project, scope, key)
+    }
+
+    /// Open a VaultClient using an existing cached key from keychain if available.
+    /// Returns `Ok(Some(client))` if cached key exists, or `Ok(None)` otherwise.
+    pub fn open_with_cached_key(
+        db_path: &Path,
+        project: &str,
+        scope: &str,
+    ) -> anyhow::Result<Option<Self>> {
+        if let Some(key) = keychain::load_key(project)? {
+            let conn = db::open_db(db_path)?;
+            Ok(Some(Self::from_connection(conn, project, scope, key)?))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Construct a VaultClient from an existing rusqlite connection and encryption key.
@@ -221,6 +243,7 @@ impl VaultClient {
     }
 
     /// Retrieves and decrypts all secrets for the current project and scope.
+    /// Records AuditAction::Read for each key decrypted and returned per SPEC F11.
     pub fn get_all(&self) -> anyhow::Result<HashMap<String, String>> {
         let mut stmt = self
             .conn
@@ -242,6 +265,10 @@ impl VaultClient {
             let (key, value_blob) = item.context("failed to read row in get_all")?;
             let decrypted = crypto::decrypt(&self.key, &value_blob)
                 .with_context(|| format!("failed to decrypt secret for key '{key}'"))?;
+
+            audit::record_audit(&self.conn, &self.project, &self.scope, &key, AuditAction::Read)
+                .with_context(|| format!("failed to record read audit log for key '{key}'"))?;
+
             result.insert(key, decrypted);
         }
 
@@ -363,6 +390,17 @@ mod tests {
         assert_eq!(all.get("HOST").map(|s| s.as_str()), Some("127.0.0.1"));
         assert_eq!(all.get("PORT").map(|s| s.as_str()), Some("8080"));
         assert_eq!(all.get("DEBUG").map(|s| s.as_str()), Some("true"));
+
+        // Verify that get_all recorded AuditAction::Read for each decrypted secret per SPEC F11
+        let logs = client.get_audit_log().unwrap();
+        let read_logs: Vec<&audit::AuditEntry> = logs
+            .iter()
+            .filter(|l| l.action == AuditAction::Read)
+            .collect();
+        assert_eq!(read_logs.len(), 3);
+        let mut read_keys: Vec<&str> = read_logs.iter().map(|l| l.key.as_str()).collect();
+        read_keys.sort();
+        assert_eq!(read_keys, vec!["DEBUG", "HOST", "PORT"]);
     }
 
     #[test]

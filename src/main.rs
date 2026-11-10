@@ -13,8 +13,16 @@ fn main() -> anyhow::Result<()> {
         let db_path = resolve_db_path(args.db.as_deref())?;
         let project = resolve_project_name(args.project.as_deref())?;
         let scope = args.scope;
-        let password = resolve_password()?;
-        let client = VaultClient::open(&db_path, &project, &scope, &password)?;
+
+        // Check keychain before prompting user for password.
+        // If a cached key exists, skip prompting password and initialize VaultClient with the cached key.
+        let client = match VaultClient::open_with_cached_key(&db_path, &project, &scope)? {
+            Some(client) => client,
+            None => {
+                let password = resolve_password()?;
+                VaultClient::open(&db_path, &project, &scope, password.as_str())?
+            }
+        };
 
         let schema = match resolve_schema_path(None)? {
             Some(path) => parse_schema_file(&path).unwrap_or_default(),

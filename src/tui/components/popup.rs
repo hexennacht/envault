@@ -46,7 +46,7 @@ pub fn render_popup(frame: &mut Frame, popup: &PopupKind, area: Rect) {
         }
         PopupKind::ShowValue { key, value } => {
             let popup_area = centered_rect_exact(64, 8, area);
-            render_show_value(frame, key, value, popup_area);
+            render_show_value(frame, key, value.as_str(), popup_area);
         }
         PopupKind::Error { title, detail } => {
             let popup_area = centered_rect_exact(64, 9, area);
@@ -266,7 +266,7 @@ mod tests {
             .draw(|frame| {
                 let popup = PopupKind::ShowValue {
                     key: "API_KEY".into(),
-                    value: "secret_12345".into(),
+                    value: zeroize::Zeroizing::new("secret_12345".into()),
                 };
                 render_popup(frame, &popup, frame.area());
             })

@@ -4,14 +4,26 @@ use anyhow::Context;
 use crate::vault::VaultClient;
 
 /// Handles the `run` subcommand by decrypting all secrets for the given project and scope,
-/// injecting them into the child process environment, spawning the command,
-/// and returning its exit status code.
-pub fn handle_run(
+/// merging schema default values, injecting them into the child process environment,
+/// spawning the command, and returning its exit status code.
+pub fn handle_run<'a>(
     db_path: &Path,
     project: &str,
     scope: &str,
-    password: &str,
+    password: impl Into<Option<&'a str>>,
     command: &[String],
+) -> anyhow::Result<i32> {
+    handle_run_with_schema(db_path, project, scope, password, command, None)
+}
+
+/// Handles the `run` subcommand with an optional explicit schema path.
+pub fn handle_run_with_schema<'a>(
+    db_path: &Path,
+    project: &str,
+    scope: &str,
+    password: impl Into<Option<&'a str>>,
+    command: &[String],
+    custom_schema_path: Option<&Path>,
 ) -> anyhow::Result<i32> {
     if command.is_empty() {
         anyhow::bail!("no command specified to run");
@@ -23,12 +35,30 @@ pub fn handle_run(
         .get_all()
         .with_context(|| format!("failed to retrieve secrets for project '{project}', scope '{scope}'"))?;
 
+    let mut env_vars = std::collections::HashMap::new();
+
+    // Merge schema default values for keys that are not present in the vault
+    if let Ok(Some(schema_path)) = crate::cli::validate::resolve_schema_path(custom_schema_path)
+        && let Ok(schema_entries) = crate::schema::parser::parse_schema_file(&schema_path)
+    {
+        for entry in schema_entries {
+            if let Some(default_val) = entry.default_value {
+                env_vars.insert(entry.key, default_val);
+            }
+        }
+    }
+
+    // Vault secrets override schema defaults
+    for (key, val) in secrets {
+        env_vars.insert(key, val);
+    }
+
     let program = &command[0];
     let args = &command[1..];
 
     let mut cmd = std::process::Command::new(program);
     cmd.args(args);
-    for (key, val) in secrets {
+    for (key, val) in env_vars {
         cmd.env(key, val);
     }
     cmd.stdin(std::process::Stdio::inherit());

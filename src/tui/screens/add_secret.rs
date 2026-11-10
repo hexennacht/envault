@@ -84,35 +84,11 @@ pub fn render_add_secret(frame: &mut Frame, app: &App, form: &AddSecretForm, are
         Style::default().fg(Color::DarkGray)
     };
     let mut val_spans = vec![Span::styled("  Value: ", val_label_style)];
-    let val_len = form.value_input.chars().count();
-    let masked_char = '█';
-
-    if is_val_focused {
-        let pos = form.cursor_pos.min(val_len);
-        let before_str = "█".repeat(pos);
-        val_spans.push(Span::styled(before_str, Style::default().fg(Color::White)));
-
-        if pos < val_len {
-            val_spans.push(Span::styled(
-                masked_char.to_string(),
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::REVERSED),
-            ));
-            let after_str = "█".repeat(val_len - pos - 1);
-            if !after_str.is_empty() {
-                val_spans.push(Span::styled(after_str, Style::default().fg(Color::White)));
-            }
-        } else {
-            val_spans.push(Span::styled(
-                "_",
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-            ));
-        }
-    } else if form.value_input.is_empty() {
-        val_spans.push(Span::styled("(empty)", Style::default().fg(Color::DarkGray)));
-    } else {
-        let masked_str = "█".repeat(val_len);
-        val_spans.push(Span::styled(masked_str, Style::default().fg(Color::White)));
-    }
+    val_spans.extend(crate::tui::screens::format_masked_input(
+        &form.value_input,
+        form.cursor_pos,
+        is_val_focused,
+    ));
     let val_line = Line::from(val_spans);
 
     // 3. Helper text

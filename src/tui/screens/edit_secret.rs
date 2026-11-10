@@ -47,28 +47,11 @@ pub fn render_edit_secret(frame: &mut Frame, app: &App, form: &EditSecretForm, a
         "  New Value: ",
         Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
     )];
-    let val_len = form.value_input.chars().count();
-    let masked_char = '█';
-    let pos = form.cursor_pos.min(val_len);
-
-    let before_str = "█".repeat(pos);
-    val_spans.push(Span::styled(before_str, Style::default().fg(Color::White)));
-
-    if pos < val_len {
-        val_spans.push(Span::styled(
-            masked_char.to_string(),
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::REVERSED),
-        ));
-        let after_str = "█".repeat(val_len - pos - 1);
-        if !after_str.is_empty() {
-            val_spans.push(Span::styled(after_str, Style::default().fg(Color::White)));
-        }
-    } else {
-        val_spans.push(Span::styled(
-            "_",
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-        ));
-    }
+    val_spans.extend(crate::tui::screens::format_masked_input(
+        &form.value_input,
+        form.cursor_pos,
+        true,
+    ));
     let val_line = Line::from(val_spans);
 
     // 3. Helper text

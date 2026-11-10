@@ -155,7 +155,7 @@ impl AuditLogState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopupKind {
     ConfirmDelete { key: String },
-    ShowValue { key: String, value: String },
+    ShowValue { key: String, value: zeroize::Zeroizing<String> },
     Error { title: String, detail: String },
 }
 
@@ -398,7 +398,7 @@ impl App {
     pub fn open_show_value(&mut self, key: impl Into<String>, value: impl Into<String>) {
         self.popup = Some(PopupKind::ShowValue {
             key: key.into(),
-            value: value.into(),
+            value: zeroize::Zeroizing::new(value.into()),
         });
     }
 
@@ -410,8 +410,12 @@ impl App {
         });
     }
 
-    /// Dismiss active modal popup.
+    /// Dismiss active modal popup and zeroize secret value if present.
     pub fn close_popup(&mut self) {
+        if let Some(PopupKind::ShowValue { ref mut value, .. }) = self.popup {
+            use zeroize::Zeroize;
+            value.zeroize();
+        }
         self.popup = None;
     }
 
@@ -731,7 +735,7 @@ mod tests {
             app.popup,
             Some(PopupKind::ShowValue {
                 key: "DATABASE_URL".into(),
-                value: "postgres://localhost/db".into()
+                value: zeroize::Zeroizing::new("postgres://localhost/db".into())
             })
         );
         app.close_popup();

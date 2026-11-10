@@ -11,8 +11,18 @@ pub mod run;
 pub mod validate;
 
 pub use audit::handle_audit;
-pub use run::handle_run;
+pub use run::{handle_run, handle_run_with_schema};
 pub use validate::{handle_validate, resolve_schema_path};
+
+/// Resolves the default scope from `config.toml` (if available), falling back to `"default"`.
+pub fn resolve_default_scope() -> String {
+    if let Ok(Some(config)) = crate::config::load_config()
+        && let Some(default_scope) = config.default_scope.filter(|s| !s.trim().is_empty())
+    {
+        return default_scope;
+    }
+    "default".to_string()
+}
 
 /// Command-line arguments for envault.
 #[derive(Parser, Debug, Clone)]
@@ -28,7 +38,7 @@ pub struct Cli {
     pub project: Option<String>,
 
     /// Environment scope
-    #[arg(long, global = true, default_value = "default")]
+    #[arg(long, global = true, default_value_t = resolve_default_scope())]
     pub scope: String,
 
     /// Vault database path [default: ~/.config/envault/vault.db]
@@ -103,12 +113,22 @@ pub fn expand_tilde(path: &Path) -> anyhow::Result<PathBuf> {
 
 /// Resolves the vault database path.
 /// If `custom_db` is provided, expands `~` if needed.
-/// If `custom_db` is `None`, falls back to `crate::vault::default_db_path()`.
+/// If `custom_db` is `None`, checks `config.toml` for `db`, then falls back to `crate::vault::default_db_path()`.
 /// Ensures the parent directory exists.
 pub fn resolve_db_path(custom_db: Option<&Path>) -> anyhow::Result<PathBuf> {
     let path = match custom_db {
         Some(p) => expand_tilde(p)?,
-        None => crate::vault::default_db_path()?,
+        None => {
+            if let Ok(Some(config)) = crate::config::load_config() {
+                if let Some(db_path) = config.db {
+                    expand_tilde(&db_path)?
+                } else {
+                    crate::vault::default_db_path()?
+                }
+            } else {
+                crate::vault::default_db_path()?
+            }
+        }
     };
 
     if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
@@ -162,11 +182,11 @@ pub fn resolve_password() -> anyhow::Result<String> {
 }
 
 /// Handles the `set` subcommand.
-pub fn handle_set(
+pub fn handle_set<'a>(
     db_path: &Path,
     project: &str,
     scope: &str,
-    password: &str,
+    password: impl Into<Option<&'a str>>,
     key_val: &str,
 ) -> anyhow::Result<()> {
     let (key, value) = key_val
@@ -185,11 +205,11 @@ pub fn handle_set(
 }
 
 /// Retrieves a secret value without printing it (useful for programmatic testing).
-pub fn get_secret_value(
+pub fn get_secret_value<'a>(
     db_path: &Path,
     project: &str,
     scope: &str,
-    password: &str,
+    password: impl Into<Option<&'a str>>,
     key: &str,
 ) -> anyhow::Result<String> {
     let client = VaultClient::open(db_path, project, scope, password)
@@ -201,11 +221,11 @@ pub fn get_secret_value(
 }
 
 /// Handles the `get` subcommand by printing the decrypted plaintext value to stdout.
-pub fn handle_get(
+pub fn handle_get<'a>(
     db_path: &Path,
     project: &str,
     scope: &str,
-    password: &str,
+    password: impl Into<Option<&'a str>>,
     key: &str,
 ) -> anyhow::Result<()> {
     let value = get_secret_value(db_path, project, scope, password, key)?;
@@ -214,11 +234,11 @@ pub fn handle_get(
 }
 
 /// Retrieves list of secret keys for current project and scope.
-pub fn list_secret_keys(
+pub fn list_secret_keys<'a>(
     db_path: &Path,
     project: &str,
     scope: &str,
-    password: &str,
+    password: impl Into<Option<&'a str>>,
 ) -> anyhow::Result<Vec<String>> {
     let client = VaultClient::open(db_path, project, scope, password)
         .with_context(|| format!("failed to open vault database at {}", db_path.display()))?;
@@ -226,11 +246,11 @@ pub fn list_secret_keys(
 }
 
 /// Handles the `list` subcommand by printing stored secret keys to stdout.
-pub fn handle_list(
+pub fn handle_list<'a>(
     db_path: &Path,
     project: &str,
     scope: &str,
-    password: &str,
+    password: impl Into<Option<&'a str>>,
 ) -> anyhow::Result<()> {
     let keys = list_secret_keys(db_path, project, scope, password)?;
     for key in keys {
@@ -240,11 +260,11 @@ pub fn handle_list(
 }
 
 /// Handles the `delete` subcommand by deleting the specified secret.
-pub fn handle_delete(
+pub fn handle_delete<'a>(
     db_path: &Path,
     project: &str,
     scope: &str,
-    password: &str,
+    password: impl Into<Option<&'a str>>,
     key: &str,
 ) -> anyhow::Result<()> {
     let client = VaultClient::open(db_path, project, scope, password)
@@ -263,23 +283,31 @@ pub fn run_cli(args: Cli) -> anyhow::Result<()> {
     let db_path = resolve_db_path(args.db.as_deref())?;
     let project = resolve_project_name(args.project.as_deref())?;
     let scope = args.scope;
-    let password = resolve_password()?;
+
+    // Check keychain before prompting user for password.
+    // If a cached key exists in keychain, skip prompting password and pass None.
+    // Only prompt on stdin when no cached key is found and ENVAULT_PASSWORD is not set.
+    let password = if crate::vault::load_key(&project)?.is_some() {
+        None
+    } else {
+        Some(resolve_password()?)
+    };
 
     match command {
         Commands::Set { key_val } => {
-            handle_set(&db_path, &project, &scope, &password, &key_val)?;
+            handle_set(&db_path, &project, &scope, password.as_deref(), &key_val)?;
         }
         Commands::Get { key } => {
-            handle_get(&db_path, &project, &scope, &password, &key)?;
+            handle_get(&db_path, &project, &scope, password.as_deref(), &key)?;
         }
         Commands::List => {
-            handle_list(&db_path, &project, &scope, &password)?;
+            handle_list(&db_path, &project, &scope, password.as_deref())?;
         }
         Commands::Delete { key } => {
-            handle_delete(&db_path, &project, &scope, &password, &key)?;
+            handle_delete(&db_path, &project, &scope, password.as_deref(), &key)?;
         }
         Commands::Run { command } => {
-            let code = run::handle_run(&db_path, &project, &scope, &password, &command)?;
+            let code = run::handle_run(&db_path, &project, &scope, password.as_deref(), &command)?;
             if code != 0 {
                 if std::env::var("ENVAULT_NO_EXIT").is_ok() {
                     anyhow::bail!("child process exited with code {}", code);
@@ -292,7 +320,7 @@ pub fn run_cli(args: Cli) -> anyhow::Result<()> {
                 &db_path,
                 &project,
                 &scope,
-                &password,
+                password.as_deref(),
                 schema.as_deref(),
             )?;
             if !ok {
@@ -303,7 +331,7 @@ pub fn run_cli(args: Cli) -> anyhow::Result<()> {
             }
         }
         Commands::Audit => {
-            audit::handle_audit(&db_path, &project, &scope, &password)?;
+            audit::handle_audit(&db_path, &project, &scope, password.as_deref())?;
         }
     }
 

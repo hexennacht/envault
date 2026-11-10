@@ -9,9 +9,51 @@ pub use edit_secret::render_edit_secret;
 pub use secret_list::render_secret_list;
 
 use ratatui::layout::Rect;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::Span;
 use ratatui::Frame;
 
 use crate::tui::app::{App, Screen};
+
+/// Helper to format masked secret input with cursor indicator for TUI input forms.
+pub fn format_masked_input<'a>(
+    value: &str,
+    cursor_pos: usize,
+    is_focused: bool,
+) -> Vec<Span<'a>> {
+    let mut spans = Vec::new();
+    let val_len = value.chars().count();
+    let masked_char = '█';
+
+    if is_focused {
+        let pos = cursor_pos.min(val_len);
+        let before_str = "█".repeat(pos);
+        spans.push(Span::styled(before_str, Style::default().fg(Color::White)));
+
+        if pos < val_len {
+            spans.push(Span::styled(
+                masked_char.to_string(),
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::REVERSED),
+            ));
+            let after_str = "█".repeat(val_len - pos - 1);
+            if !after_str.is_empty() {
+                spans.push(Span::styled(after_str, Style::default().fg(Color::White)));
+            }
+        } else {
+            spans.push(Span::styled(
+                "_",
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            ));
+        }
+    } else if value.is_empty() {
+        spans.push(Span::styled("(empty)", Style::default().fg(Color::DarkGray)));
+    } else {
+        let masked_str = "█".repeat(val_len);
+        spans.push(Span::styled(masked_str, Style::default().fg(Color::White)));
+    }
+
+    spans
+}
 
 /// Dispatch rendering to the appropriate screen according to `app.screen`.
 /// Also renders active popup overlay on top if present.

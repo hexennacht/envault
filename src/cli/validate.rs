@@ -92,11 +92,11 @@ pub fn format_validation_output(
 /// - Validates secrets against schema rules.
 /// - Prints the validation table.
 /// - Returns `Ok(true)` if 0 errors, `Ok(false)` if errors found.
-pub fn handle_validate(
+pub fn handle_validate<'a>(
     db_path: &Path,
     project: &str,
     scope: &str,
-    password: &str,
+    password: impl Into<Option<&'a str>>,
     schema_path: Option<&Path>,
 ) -> anyhow::Result<bool> {
     let resolved = resolve_schema_path(schema_path)?;

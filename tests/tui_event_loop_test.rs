@@ -217,7 +217,7 @@ fn test_viewing_secret_value_popup_and_clipboard() {
         app.popup,
         Some(PopupKind::ShowValue {
             key: "ALPHA".into(),
-            value: "alpha_val".into(),
+            value: zeroize::Zeroizing::new("alpha_val".into()),
         })
     );
 

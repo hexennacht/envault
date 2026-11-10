@@ -39,29 +39,25 @@ pub fn validate(
     let mut errors = Vec::new();
 
     for entry in entries {
-        let secret_val = secrets.get(&entry.key);
-        let is_missing = match secret_val {
+        let secret_val = secrets.get(&entry.key).map(|s| s.as_str());
+        let effective_val = secret_val.or(entry.default_value.as_deref());
+
+        let is_missing = match effective_val {
             None => true,
             Some(val) => val.is_empty(),
         };
 
         let mut required_error_emitted = false;
         if entry.required && is_missing {
-            let has_default = entry
-                .default_value
-                .as_deref()
-                .is_some_and(|d| !d.is_empty());
-            if !has_default {
-                errors.push(ValidationError {
-                    key: entry.key.clone(),
-                    rule: "required".to_string(),
-                    message: "Secret is required but not set".to_string(),
-                });
-                required_error_emitted = true;
-            }
+            errors.push(ValidationError {
+                key: entry.key.clone(),
+                rule: "required".to_string(),
+                message: "Secret is required but not set".to_string(),
+            });
+            required_error_emitted = true;
         }
 
-        if let (Some(val), false) = (secret_val, required_error_emitted) {
+        if let (Some(val), false) = (effective_val, required_error_emitted) {
             validate_type(&entry.key, &entry.schema_type, val, &mut errors);
         }
     }

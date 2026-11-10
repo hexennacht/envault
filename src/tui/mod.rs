@@ -113,7 +113,7 @@ pub fn handle_popup_event(app: &mut App, client: &mut VaultClient, key_event: Ke
         },
         PopupKind::ShowValue { value, .. } => match key_event.code {
             KeyCode::Esc | KeyCode::Enter => {
-                app.popup = None;
+                app.close_popup();
             }
             KeyCode::Char('c') => {
                 copy_to_clipboard(&value);

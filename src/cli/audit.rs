@@ -38,11 +38,11 @@ pub fn format_audit_log(entries: &[AuditEntry]) -> String {
 
 /// Handles the `audit` subcommand by retrieving the audit log for the current project
 /// and printing it formatted as a clean table to stdout.
-pub fn handle_audit(
+pub fn handle_audit<'a>(
     db_path: &Path,
     project: &str,
     scope: &str,
-    password: &str,
+    password: impl Into<Option<&'a str>>,
 ) -> anyhow::Result<()> {
     let client = VaultClient::open(db_path, project, scope, password)
         .with_context(|| format!("failed to open vault database at {}", db_path.display()))?;
