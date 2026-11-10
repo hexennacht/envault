@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `SchemaEntry` and `SchemaType` defined in `src/schema/types.rs` matching SPEC §6.2.
-- [ ] `parse_schema_file` and `parse_schema_str` implemented in `src/schema/parser.rs` matching SPEC §7.
-- [ ] Correctly extracts `@required`, `@sensitive`, and type constraints (`@type=string`, `port`, `url`, `bool`, `integer`, `enum(a,b,c)`).
-- [ ] Attaches preceding comments as description and parses inline default values (`KEY=default`).
-- [ ] Unit tests for parsing various decorators, edge cases, and blank lines.
+- [x] `SchemaEntry` and `SchemaType` defined in `src/schema/types.rs` matching SPEC §6.2.
+- [x] `parse_schema_file` and `parse_schema_str` implemented in `src/schema/parser.rs` matching SPEC §7.
+- [x] Correctly extracts `@required`, `@sensitive`, and type constraints (`@type=string`, `port`, `url`, `bool`, `integer`, `enum(a,b,c)`).
+- [x] Attaches preceding comments as description and parses inline default values (`KEY=default`).
+- [x] Unit tests for parsing various decorators, edge cases, and blank lines.

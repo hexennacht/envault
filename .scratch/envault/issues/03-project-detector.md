@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** implemented
+**Status:** done
 
 - [x] `detect_project(start_dir: &Path) -> anyhow::Result<ProjectInfo>` implemented in `src/project/detector.rs` matching SPEC §4.1 and §11.
 - [x] Returns directory path and inferred project name (using directory name).
