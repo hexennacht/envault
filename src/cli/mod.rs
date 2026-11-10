@@ -12,7 +12,7 @@ pub mod validate;
 
 pub use audit::handle_audit;
 pub use run::handle_run;
-pub use validate::handle_validate;
+pub use validate::{handle_validate, resolve_schema_path};
 
 /// Command-line arguments for envault.
 #[derive(Parser, Debug, Clone)]

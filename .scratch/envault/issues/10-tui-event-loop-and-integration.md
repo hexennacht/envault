@@ -4,10 +4,10 @@
 
 **Blocked by:** 07: CLI Run, Validate, and Audit Commands, 09: TUI Screens
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `src/tui/mod.rs` initializes and cleanly restores terminal backend using crossterm / ratatui.
-- [ ] Event loop executes poll, read, and render matching the design graph in SPEC §6.3.
-- [ ] Keystroke dispatch routes to popup first when active, otherwise active screen handler.
-- [ ] Bare `envault` launches TUI; subcommands execute CLI commands.
-- [ ] Complete test suite passes with zero warnings (`cargo test`, `cargo clippy`).
+- [x] `src/tui/mod.rs` initializes and cleanly restores terminal backend using crossterm / ratatui.
+- [x] Event loop executes poll, read, and render matching the design graph in SPEC §6.3.
+- [x] Keystroke dispatch routes to popup first when active, otherwise active screen handler.
+- [x] Bare `envault` launches TUI; subcommands execute CLI commands.
+- [x] Complete test suite passes with zero warnings (`cargo test`, `cargo clippy`).
