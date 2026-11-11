@@ -84,13 +84,14 @@ jobs:
             echo "release_created=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create GitHub Release
+      - name: Create Draft GitHub Release
         if: steps.resolve_tag.outputs.release_created == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.resolve_tag.outputs.tag }}
           name: Release ${{ steps.resolve_tag.outputs.tag }}
           body: ${{ steps.tag_version.outputs.changelog }}
+          draft: true
           generate_release_notes: ${{ steps.tag_version.outputs.changelog == '' }}
 
   upload-assets:
@@ -140,3 +141,17 @@ jobs:
           include: LICENSE-MIT,README.md
           ref: refs/tags/${{ needs.tag-and-release.outputs.tag }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-release:
+    name: Publish Release
+    needs: [tag-and-release, upload-assets]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag-and-release.outputs.tag }}
+        run: |
+          gh release edit "$TAG" --draft=false --latest
