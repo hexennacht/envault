@@ -17,6 +17,24 @@ It injects decrypted values into child processes without writing plaintext secre
 
 ## Installation
 
+### Quick install
+
+Install the pre-compiled binary:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hexennacht/envault/main/install.sh | sh
+```
+
+You can specify a target directory or release version:
+
+```bash
+# Install to a custom directory
+curl -fsSL https://raw.githubusercontent.com/hexennacht/envault/main/install.sh | INSTALL_DIR=~/.local/bin sh
+
+# Install a specific version
+curl -fsSL https://raw.githubusercontent.com/hexennacht/envault/main/install.sh | ENVAULT_VERSION=v0.1.2 sh
+```
+
 ### Prerequisites
 
 Install the Rust toolchain (Rust 2024 edition or newer):
