@@ -1,4 +1,4 @@
-use std::io::{IsTerminal, Write};
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
@@ -132,8 +132,12 @@ pub fn resolve_db_path(custom_db: Option<&Path>) -> anyhow::Result<PathBuf> {
     };
 
     if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create database directory at {}", parent.display()))?;
+        std::fs::create_dir_all(parent).with_context(|| {
+            format!(
+                "failed to create database directory at {}",
+                parent.display()
+            )
+        })?;
     }
 
     Ok(path)
@@ -146,7 +150,10 @@ pub fn resolve_project_name(project: Option<&str>) -> anyhow::Result<String> {
 }
 
 /// Resolves the project name using `start_dir` for project detection if `project` is not provided.
-pub fn resolve_project_name_from(project: Option<&str>, start_dir: &Path) -> anyhow::Result<String> {
+pub fn resolve_project_name_from(
+    project: Option<&str>,
+    start_dir: &Path,
+) -> anyhow::Result<String> {
     if let Some(trimmed) = project.map(str::trim).filter(|p| !p.is_empty()) {
         return Ok(trimmed.to_string());
     }
@@ -155,27 +162,36 @@ pub fn resolve_project_name_from(project: Option<&str>, start_dir: &Path) -> any
     Ok(info.name)
 }
 
+/// Text written before the master password prompt.
+pub const PASSWORD_PROMPT: &str = "Enter master password: ";
+
+/// Character that hides each typed password character.
+pub const PASSWORD_MASK: char = '*';
+
 /// Resolves the master password:
 /// 1. Checks `ENVAULT_PASSWORD` environment variable first.
-/// 2. If stdin is interactive (a terminal), prompts the user.
+/// 2. If stdin is interactive (a terminal), prompts the user without echo.
 /// 3. In test/headless environments (non-interactive stdin), falls back to a default password.
+///
+/// Step 2 writes a `*` for each typed character. Backspace, Ctrl-U and Ctrl-C work.
 pub fn resolve_password() -> anyhow::Result<String> {
-    if let Some(password) = std::env::var("ENVAULT_PASSWORD").ok().filter(|p| !p.is_empty()) {
+    if let Some(password) = std::env::var("ENVAULT_PASSWORD")
+        .ok()
+        .filter(|p| !p.is_empty())
+    {
         return Ok(password);
     }
 
     if std::io::stdin().is_terminal() {
-        eprint!("Enter master password: ");
-        std::io::stderr().flush().context("failed to flush stderr")?;
-        let mut line = String::new();
-        std::io::stdin()
-            .read_line(&mut line)
-            .context("failed to read password from stdin")?;
-        let trimmed = line.trim_end_matches(&['\r', '\n'][..]);
-        if trimmed.is_empty() {
+        let config = rpassword::ConfigBuilder::new()
+            .password_feedback_mask(PASSWORD_MASK)
+            .build();
+        let password = rpassword::prompt_password_with_config(PASSWORD_PROMPT, config)
+            .context("failed to read master password from terminal")?;
+        if password.is_empty() {
             anyhow::bail!("master password cannot be empty");
         }
-        Ok(trimmed.to_string())
+        Ok(password)
     } else {
         Ok("envault-default-password".to_string())
     }
@@ -189,9 +205,9 @@ pub fn handle_set<'a>(
     password: impl Into<Option<&'a str>>,
     key_val: &str,
 ) -> anyhow::Result<()> {
-    let (key, value) = key_val
-        .split_once('=')
-        .ok_or_else(|| anyhow::anyhow!("invalid secret format '{}', expected KEY=VALUE", key_val))?;
+    let (key, value) = key_val.split_once('=').ok_or_else(|| {
+        anyhow::anyhow!("invalid secret format '{}', expected KEY=VALUE", key_val)
+    })?;
 
     let key = key.trim();
     if key.is_empty() {
@@ -427,7 +443,11 @@ mod tests {
         let temp = tempdir().unwrap();
         let proj_dir = temp.path().join("detected-proj");
         std::fs::create_dir(&proj_dir).unwrap();
-        std::fs::write(proj_dir.join("Cargo.toml"), "[package]\nname = \"detected-proj\"").unwrap();
+        std::fs::write(
+            proj_dir.join("Cargo.toml"),
+            "[package]\nname = \"detected-proj\"",
+        )
+        .unwrap();
 
         let detected = resolve_project_name_from(None, &proj_dir).unwrap();
         assert_eq!(detected, "detected-proj");
@@ -452,8 +472,14 @@ mod tests {
         let scope = "default";
         let password = "pass";
 
-        handle_set(&db_path, project, scope, password, "DATABASE_URL=postgres://localhost:5432/db")
-            .unwrap();
+        handle_set(
+            &db_path,
+            project,
+            scope,
+            password,
+            "DATABASE_URL=postgres://localhost:5432/db",
+        )
+        .unwrap();
 
         let val = get_secret_value(&db_path, project, scope, password, "DATABASE_URL").unwrap();
         assert_eq!(val, "postgres://localhost:5432/db");
@@ -494,5 +520,31 @@ mod tests {
 
         let err2 = handle_set(&db_path, "proj", "default", "pass", "=NO_KEY");
         assert!(err2.is_err());
+    }
+
+    #[test]
+    fn test_resolve_password_from_env_var() {
+        // The env var short-circuit must not touch the terminal.
+        // Safety: this test runs in the same process as other tests, so it sets and
+        // removes the variable inside one critical section.
+        let previous = std::env::var("ENVAULT_PASSWORD").ok();
+        unsafe {
+            std::env::set_var("ENVAULT_PASSWORD", "env-password-42");
+        }
+        let resolved = resolve_password().unwrap();
+        match previous {
+            Some(value) => unsafe { std::env::set_var("ENVAULT_PASSWORD", value) },
+            None => unsafe { std::env::remove_var("ENVAULT_PASSWORD") },
+        }
+        assert_eq!(resolved, "env-password-42");
+    }
+
+    #[test]
+    fn test_password_prompt_uses_mask_feedback() {
+        // rpassword only writes mask characters when the input is a real terminal.
+        // This test pins the config values. The end-to-end mask check lives in
+        // tests/cli_password_mask_test.rs, which drives a pseudo terminal.
+        assert_eq!(PASSWORD_MASK, '*');
+        assert_eq!(PASSWORD_PROMPT, "Enter master password: ");
     }
 }

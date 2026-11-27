@@ -5,7 +5,7 @@ use anyhow::Context;
 
 use crate::schema::parser::parse_schema_file;
 use crate::schema::types::SchemaEntry;
-use crate::schema::validator::{validate, ValidationError};
+use crate::schema::validator::{ValidationError, validate};
 use crate::vault::VaultClient;
 
 /// Resolves the path to the schema file:
@@ -49,20 +49,30 @@ pub fn format_validation_output(
     errors: &[ValidationError],
 ) -> String {
     let mut out = String::new();
-    out.push_str(&format!("Validating project: {project} (scope: {scope})\n\n"));
+    out.push_str(&format!(
+        "Validating project: {project} (scope: {scope})\n\n"
+    ));
 
     let mut error_map: HashMap<&str, &ValidationError> = HashMap::new();
     for err in errors {
         error_map.entry(&err.key).or_insert(err);
     }
 
-    let key_width = entries.iter().map(|e| e.key.len()).max().unwrap_or(3).max(19);
+    let key_width = entries
+        .iter()
+        .map(|e| e.key.len())
+        .max()
+        .unwrap_or(3)
+        .max(19);
     out.push_str(&format!("  {:<key_width$}  STATUS    DETAIL\n", "KEY"));
 
     for entry in entries {
         if let Some(err) = error_map.get(entry.key.as_str()) {
             if err.rule == "required" {
-                out.push_str(&format!("  {:<key_width$}  ✗ MISSING  required\n", entry.key));
+                out.push_str(&format!(
+                    "  {:<key_width$}  ✗ MISSING  required\n",
+                    entry.key
+                ));
             } else {
                 out.push_str(&format!(
                     "  {:<key_width$}  ✗ INVALID  {}\n",
@@ -113,9 +123,9 @@ pub fn handle_validate<'a>(
 
     let client = VaultClient::open(db_path, project, scope, password)
         .with_context(|| format!("failed to open vault database at {}", db_path.display()))?;
-    let secrets = client
-        .get_all()
-        .with_context(|| format!("failed to retrieve secrets for project '{project}', scope '{scope}'"))?;
+    let secrets = client.get_all().with_context(|| {
+        format!("failed to retrieve secrets for project '{project}', scope '{scope}'")
+    })?;
 
     let errors = validate(&entries, &secrets);
     let output = format_validation_output(project, scope, &entries, &errors);
@@ -188,14 +198,24 @@ mod tests {
             },
         ];
         let errors = vec![
-            ValidationError::new("STRIPE_SECRET_KEY", "required", "Secret is required but not set"),
-            ValidationError::new("API_PORT", "port", "expected port (1-65535), got \"not_a_port\""),
+            ValidationError::new(
+                "STRIPE_SECRET_KEY",
+                "required",
+                "Secret is required but not set",
+            ),
+            ValidationError::new(
+                "API_PORT",
+                "port",
+                "expected port (1-65535), got \"not_a_port\"",
+            ),
         ];
         let out = format_validation_output("my-app", "development", &entries, &errors);
 
         assert!(out.contains("DATABASE_URL         ✓ OK"));
         assert!(out.contains("STRIPE_SECRET_KEY    ✗ MISSING  required"));
-        assert!(out.contains("API_PORT             ✗ INVALID  expected port (1-65535), got \"not_a_port\""));
+        assert!(out.contains(
+            "API_PORT             ✗ INVALID  expected port (1-65535), got \"not_a_port\""
+        ));
         assert!(out.contains("2 errors found."));
     }
 
@@ -214,30 +234,23 @@ mod tests {
 
         let client = VaultClient::open(&db_path, project, "default", "pass").unwrap();
         // Set valid DATABASE_URL and invalid PORT
-        client.set("DATABASE_URL", "https://postgres.local:5432/db").unwrap();
+        client
+            .set("DATABASE_URL", "https://postgres.local:5432/db")
+            .unwrap();
         client.set("PORT", "not_a_port").unwrap();
 
-        let result = handle_validate(
-            &db_path,
-            project,
-            "default",
-            "pass",
-            Some(&schema_path),
-        )
-        .unwrap();
+        let result =
+            handle_validate(&db_path, project, "default", "pass", Some(&schema_path)).unwrap();
         assert!(!result, "validation should fail due to invalid port");
 
         // Fix PORT
         client.set("PORT", "8080").unwrap();
-        let result_fixed = handle_validate(
-            &db_path,
-            project,
-            "default",
-            "pass",
-            Some(&schema_path),
-        )
-        .unwrap();
-        assert!(result_fixed, "validation should pass once all secrets are valid");
+        let result_fixed =
+            handle_validate(&db_path, project, "default", "pass", Some(&schema_path)).unwrap();
+        assert!(
+            result_fixed,
+            "validation should pass once all secrets are valid"
+        );
     }
 
     #[test]

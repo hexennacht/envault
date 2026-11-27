@@ -1,5 +1,5 @@
-use std::path::Path;
 use anyhow::Context;
+use std::path::Path;
 
 use crate::vault::VaultClient;
 
@@ -31,9 +31,9 @@ pub fn handle_run_with_schema<'a>(
 
     let client = VaultClient::open(db_path, project, scope, password)
         .with_context(|| format!("failed to open vault database at {}", db_path.display()))?;
-    let secrets = client
-        .get_all()
-        .with_context(|| format!("failed to retrieve secrets for project '{project}', scope '{scope}'"))?;
+    let secrets = client.get_all().with_context(|| {
+        format!("failed to retrieve secrets for project '{project}', scope '{scope}'")
+    })?;
 
     let mut env_vars = std::collections::HashMap::new();
 
@@ -114,25 +114,13 @@ mod tests {
         // Run a simple command: true (should exit 0)
         #[cfg(unix)]
         {
-            let code = handle_run(
-                &db_path,
-                project,
-                "default",
-                "pass",
-                &["true".to_string()],
-            )
-            .unwrap();
+            let code =
+                handle_run(&db_path, project, "default", "pass", &["true".to_string()]).unwrap();
             assert_eq!(code, 0);
 
             // Run false (should exit 1)
-            let code = handle_run(
-                &db_path,
-                project,
-                "default",
-                "pass",
-                &["false".to_string()],
-            )
-            .unwrap();
+            let code =
+                handle_run(&db_path, project, "default", "pass", &["false".to_string()]).unwrap();
             assert_eq!(code, 1);
         }
     }
