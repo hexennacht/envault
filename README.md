@@ -70,6 +70,8 @@ envault set DATABASE_URL="postgres://localhost:5432/dev"
 ```
 
 On first use, `envault` prompts you to choose a master password.
+The prompt hides each typed character with a `*`.
+The password is never written to the terminal.
 
 2. Read the secret value:
 
@@ -249,6 +251,7 @@ db = "~/.config/envault/vault.db"
 - **AES-256-GCM Encryption**: Generates a unique 12-byte initialization vector (IV) for each stored secret value.
 - **Authentication Tags**: Appends a 16-byte authentication tag to detect any ciphertext tampering.
 - **Keyring Storage**: Stores the derived key in the OS keychain for the active session.
+- **Masked Password Prompt**: Reads the master password from the terminal without echo and writes a `*` for each typed character.
 - **Memory Zeroization**: Clears sensitive master password buffers in memory using the `zeroize` crate.
 - **Zero Disk Exposure**: Secrets flow directly from memory to child process environments without temporary files.
 

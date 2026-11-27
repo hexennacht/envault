@@ -1,8 +1,8 @@
-use std::path::Path;
 use anyhow::Context;
+use std::path::Path;
 
-use crate::vault::audit::AuditEntry;
 use crate::vault::VaultClient;
+use crate::vault::audit::AuditEntry;
 
 /// Formats a list of audit entries as a clean aligned table matching SPEC §8.8 / §9.1.
 pub fn format_audit_log(entries: &[AuditEntry]) -> String {
